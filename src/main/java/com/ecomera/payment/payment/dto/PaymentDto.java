@@ -15,6 +15,7 @@ public record PaymentDto(
         UUID id,
         UUID orderId,
         UUID userId,
+        String email,
         String stripePaymentIntentId,
         BigDecimal amount,
         String currency,

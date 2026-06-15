@@ -40,9 +40,10 @@ public class PaymentController {
     @ApiResponse(responseCode = "401", description = "Unauthorized")
     public ResponseEntity<PaymentDto> create(
             @RequestHeader("X-User-Id") UUID userId,
+            @RequestHeader("X-User-Email") String email,
             @Valid @RequestBody PaymentCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(paymentService.createPayment(userId, request));
+                .body(paymentService.createPayment(userId, email, request));
     }
 
     @GetMapping

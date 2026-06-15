@@ -22,6 +22,9 @@ spring:
     redis:
       autoconfigure:
         enabled: false
+  kafka:
+    consumer:
+      auto-offset-reset: none
 
 eureka:
   client:

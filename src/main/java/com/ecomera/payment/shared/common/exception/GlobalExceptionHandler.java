@@ -1,6 +1,7 @@
 package com.ecomera.payment.shared.common.exception;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import feign.FeignException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
@@ -150,14 +150,30 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ErrorResponse> handleFeignException(
+            FeignException ex, HttpServletRequest request) {
+        log.error("Feign error on {}: status={}, message={}", request.getRequestURI(), ex.status(), ex.getMessage());
+        HttpStatus status;
+        try {
+            status = HttpStatus.valueOf(ex.status());
+        } catch (Exception e) {
+            status = HttpStatus.SERVICE_UNAVAILABLE;
+        }
+        ErrorResponse error = ErrorResponse.of(
+                status.value(), status.getReasonPhrase(),
+                "Upstream service error: " + ex.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(status).body(error);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
-            DataIntegrityViolationException ex, WebRequest request) {
+            DataIntegrityViolationException ex, HttpServletRequest request) {
         ErrorResponse error = ErrorResponse.builder()
                 .status(HttpStatus.CONFLICT.value())
                 .error("Conflict")
                 .message("Duplicate entry not allowed")
-                .path(request.getDescription(false).replace("uri=", ""))
+                .path(request.getRequestURI())
                 .build();
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }

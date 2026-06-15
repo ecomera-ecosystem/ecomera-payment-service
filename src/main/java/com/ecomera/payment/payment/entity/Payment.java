@@ -30,6 +30,9 @@ public class Payment extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(nullable = false, length = 255)
+    private String email;
+
     @Column(name = "stripe_payment_intent_id", unique = true)
     private String stripePaymentIntentId;
 

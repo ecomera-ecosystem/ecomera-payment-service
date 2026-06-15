@@ -13,6 +13,7 @@ import com.ecomera.payment.payment.mapper.PaymentMapper;
 import com.ecomera.payment.payment.repository.PaymentRepository;
 import com.ecomera.payment.shared.common.exception.BusinessException;
 import com.ecomera.payment.shared.common.exception.ResourceNotFoundException;
+import com.ecomera.payment.shared.kafka.NotificationEventProducer;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,12 +38,13 @@ public class PaymentService {
     private final PaymentMapper paymentMapper;
     private final PaymentGateway paymentGateway;
     private final OrderServiceClient orderServiceClient;
+    private final NotificationEventProducer notificationProducer;
 
     @Value("${payment.default-currency:MAD}")
     private String defaultCurrency;
 
     @Transactional
-    public PaymentDto createPayment(UUID userId, PaymentCreateRequest request) {
+    public PaymentDto createPayment(UUID userId, String email, PaymentCreateRequest request) {
         if (paymentRepository.findByOrderId(request.orderId()).isPresent()) {
             throw new BusinessException("Payment already exists for order: " + request.orderId());
         }
@@ -59,6 +61,7 @@ public class PaymentService {
 
         Payment payment = paymentMapper.toEntity(request);
         payment.setUserId(userId);
+        payment.setEmail(email);
         payment.setAmount(order.totalPrice());
         payment.setCurrency(defaultCurrency);
         payment.setStripePaymentIntentId(intent.id());
@@ -66,6 +69,16 @@ public class PaymentService {
         Payment saved = paymentRepository.save(payment);
         log.info("Payment created: {} for order: {} by user: {}",
                 saved.getId(), request.orderId(), userId);
+
+        notificationProducer.sendNotification(
+                email,
+                "Payment Initiated",
+                "A payment of " + saved.getAmount() + " " + saved.getCurrency()
+                        + " for order #" + saved.getOrderId() + " has been initiated.",
+                "EMAIL",
+                "ecomera-payment-service"
+        );
+
         return paymentMapper.toDto(saved);
     }
 
@@ -105,6 +118,15 @@ public class PaymentService {
 
         if (target != null && target != current) {
             syncOrderStatus(saved);
+
+            notificationProducer.sendNotification(
+                    saved.getEmail(),
+                    "Payment " + target,
+                    "Payment for order #" + saved.getOrderId()
+                            + " is now " + target + ".",
+                    "EMAIL",
+                    "ecomera-payment-service"
+            );
         }
 
         log.info("Payment {} updated", id);
@@ -136,6 +158,16 @@ public class PaymentService {
                         payment.getOrderId(), e.getMessage());
             }
 
+            notificationProducer.sendNotification(
+                    payment.getEmail(),
+                    "Payment Successful",
+                    "Your payment for order #" + payment.getOrderId()
+                            + " of " + payment.getAmount() + " " + payment.getCurrency()
+                            + " has been completed successfully.",
+                    "EMAIL",
+                    "ecomera-payment-service"
+            );
+
         } else if ("payment_intent.payment_failed".equals(event.type())) {
             Payment payment = paymentRepository
                     .findByStripePaymentIntentId(event.paymentIntentId())
@@ -145,6 +177,15 @@ public class PaymentService {
             payment.setStatus(PaymentStatus.FAILED);
             paymentRepository.save(payment);
             log.info("Payment {} marked as FAILED for intent: {}", payment.getId(), event.paymentIntentId());
+
+            notificationProducer.sendNotification(
+                    payment.getEmail(),
+                    "Payment Failed",
+                    "Your payment for order #" + payment.getOrderId()
+                            + " has failed. Please try again.",
+                    "EMAIL",
+                    "ecomera-payment-service"
+            );
 
         } else {
             log.debug("Unhandled webhook event type: {}", event.type());
@@ -172,6 +213,16 @@ public class PaymentService {
 
         Payment saved = paymentRepository.save(payment);
         log.info("Payment {} refunded. New status: {}", saved.getId(), saved.getStatus());
+
+        notificationProducer.sendNotification(
+                saved.getEmail(),
+                "Payment Refunded",
+                "Your payment for order #" + saved.getOrderId()
+                        + " has been refunded. Status: " + saved.getStatus() + ".",
+                "EMAIL",
+                "ecomera-payment-service"
+        );
+
         return paymentMapper.toDto(saved);
     }
 
