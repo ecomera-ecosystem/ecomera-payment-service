@@ -13,3 +13,5 @@ jobs:
       java_version: '17'
       maven_goals: 'clean verify'
       service-name: 'payment-service'
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
