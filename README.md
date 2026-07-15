@@ -9,6 +9,8 @@
 ![OpenFeign](https://img.shields.io/badge/OpenFeign-Integrated-6DB33F)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?logo=open-source-initiative&logoColor=white)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ecomera-payment-service&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ecomera-payment-service)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ecomera-payment-service&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ecomera-payment-service)
 
 Payment processing microservice for the Ecomera ecosystem. Handles payment intents, refunds, and webhook events. Ships with a **mock gateway** by default — no API keys required.
 
